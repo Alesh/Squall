@@ -1,8 +1,9 @@
-#ifndef SQUALL__EVENT_LOOP_HXX
-#define SQUALL__EVENT_LOOP_HXX
+#ifndef SQUALL__PLATFORM_LOOP_HXX
+#define SQUALL__PLATFORM_LOOP_HXX
 
 #include <ev.h>
 #include <memory>
+#include <functional>
 #include "NonCopyable.hxx"
 
 namespace squall {
@@ -17,9 +18,12 @@ enum Event : int {
     Cleanup = EV_CLEANUP,
 };
 
+/* Event handler */
+using OnEvent = std::function<void(int revents)>;
 
-/* Event Loop */
-class EventLoop : NonCopyable {
+
+/* Platform event Loop */
+class PlatformLoop : NonCopyable {
   public:
     /* Return true if is active */
     bool running() const noexcept {
@@ -32,12 +36,12 @@ class EventLoop : NonCopyable {
     }
 
     /* Returns created pointer to new loop */
-    static std::shared_ptr<EventLoop> create(int flag = EVFLAG_AUTO) {
-        return std::shared_ptr<EventLoop>(new EventLoop(flag));
+    static std::shared_ptr<PlatformLoop> create(int flag = EVFLAG_AUTO) {
+        return std::shared_ptr<PlatformLoop>(new PlatformLoop(flag));
     }
 
     /* Destructor. */
-    ~EventLoop() {
+    ~PlatformLoop() {
         if (!ev_is_default_loop(m_raw))
             ev_loop_destroy(m_raw);
     }
@@ -64,7 +68,7 @@ class EventLoop : NonCopyable {
     bool m_running = false;
 
     /* Constructor. */
-    EventLoop(int flag) {
+    PlatformLoop(int flag) {
         if (flag == -1)
             m_raw = ev_default_loop(EVFLAG_AUTO);
         else

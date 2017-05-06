@@ -1,19 +1,12 @@
 #include <string>
 #include <memory>
 #include <squall/Dispatcher.hxx>
-#include <squall/EventLoop.hxx>
+#include <squall/PlatformLoop.hxx>
 #include "catch.hpp"
 
 using squall::Event;
-using squall::EventLoop;
+using squall::PlatformLoop;
 using squall::Dispatcher;
-
-namespace squall {
-template <>
-char const* squall::Dispatcher<char const*>::nullable_ctx() noexcept {
-    return nullptr;
-}
-}
 
 
 TEST_CASE("Contexted event dispatcher; unit test", "[squall::Dispatcher]") {
@@ -24,7 +17,7 @@ TEST_CASE("Contexted event dispatcher; unit test", "[squall::Dispatcher]") {
     const char* B = "B";
     const char* W = "W";
 
-    auto sp_loop = EventLoop::create();
+    auto sp_loop = PlatformLoop::create();
     REQUIRE(sp_loop.use_count() == 1);
 
     Dispatcher<char const*> disp(

@@ -2,17 +2,11 @@
 #define SQUALL__CB_EVENT_LOOP__HXX
 
 #include <squall/Dispatcher.hxx>
-#include <squall/EventLoop.hxx>
+#include <squall/PlatformLoop.hxx>
 
+using squall::PlatformLoop;
 using namespace std::placeholders;
 using Callback = std::function<bool(int revents) noexcept>;
-
-namespace squall {
-template <>
-std::shared_ptr<Callback> Dispatcher<std::shared_ptr<Callback>>::nullable_ctx() noexcept {
-    return std::shared_ptr<Callback>();
-}
-}
 
 
 /**
@@ -31,7 +25,7 @@ class EventLoop : squall::Dispatcher<std::shared_ptr<Callback>> {
     }
 
   public:
-    EventLoop() : Base(std::bind(&EventLoop::_base_on_event, this, _1, _2), squall::EventLoop::create()) {}
+    EventLoop() : Base(std::bind(&EventLoop::_base_on_event, this, _1, _2), PlatformLoop::create()) {}
 
     /* Return true if an event dispatching is active. */
     bool is_running() {

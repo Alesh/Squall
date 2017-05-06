@@ -1,22 +1,15 @@
 #include <iostream>
-#include <squall/EventLoop.hxx>
+#include <squall/PlatformLoop.hxx>
 #include <squall/Dispatcher.hxx>
 
 
 using squall::Event;
-using squall::EventLoop;
+using squall::PlatformLoop;
 using Dispatcher = squall::Dispatcher<const char*>;
-
-namespace squall {
-template <>
-char const* squall::Dispatcher<char const*>::nullable_ctx() noexcept {
-    return nullptr;
-}
-}
 
 
 int main(int argc, char const* argv[]) {
-    auto sp_loop = EventLoop::create();
+    auto sp_loop = PlatformLoop::create();
 
     Dispatcher disp([&](const char* name, int revents) {
         if (revents == Event::Timeout) {
