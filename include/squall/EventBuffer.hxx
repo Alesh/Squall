@@ -118,6 +118,7 @@ protected:
           on_event(std::forward<OnEvent>(on_event)), block_size(block_size), buffer_size(buffer_size) {
         watcher::setup(fd, static_cast<int>(Event::Read));
         adjust_buffer_size();
+        set_non_block(fd);
     }
 
     /* Return true if is buffer watcher */
@@ -146,10 +147,10 @@ public:
 
   protected:
     /* Sets non block */
-    virtual bool set_non_block() {
-        auto flags = fcntl(fd(), F_GETFL, 0);
+    virtual bool set_non_block(int fd) {
+        auto flags = fcntl(fd, F_GETFL, 0);
         flags = (flags == -1) ? 0 : flags;
-        if (fcntl(fd(), F_SETFL, flags | O_NONBLOCK) == -1)
+        if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
             last_errno = errno;
         return (last_errno == 0);
     }
@@ -231,6 +232,8 @@ public:
             if (out.size() <= threshold)
                 result = Event::Write;
         }
+        if ((result==0)&&(last_errno != 0))
+            result = Event::Error;
         return result;
     }
 
@@ -264,7 +267,7 @@ public:
                         last_errno = result.second; // read error
                 }
             }
-            if (revents & Event::Write) {
+            if ((last_errno == 0) && (revents & Event::Write)) {
                 size = out.size() < block_size ? out.size() : block_size;
                 if (size > 0) {
                     auto result = write_block(&(*out.begin()), size);
