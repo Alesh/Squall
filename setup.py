@@ -10,6 +10,6 @@ setup(**{
     'headers': ['include/squall/Dispatcher.hxx',
                 'include/squall/NonCopyable.hxx',
                 'include/squall/PlatformLoop.hxx',
-                'include/squall/PlatformWatcher.hxx'],
+                'include/squall/PlatformWatchers.hxx'],
     'zip_safe': False
 })

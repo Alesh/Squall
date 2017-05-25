@@ -1,5 +1,5 @@
-#ifndef SQUALL__PLATFORM_WATCHER_HXX
-#define SQUALL__PLATFORM_WATCHER_HXX
+#ifndef SQUALL__PLATFORM_WATCHERS_HXX
+#define SQUALL__PLATFORM_WATCHERS_HXX
 
 #include "PlatformLoop.hxx"
 
@@ -15,7 +15,7 @@ class Watcher {
 
     static void callback(struct ev_loop* p_loop, EV* p_ev_watcher, int revents) {
         auto p_watcher = reinterpret_cast<Watcher<EV>*>(p_ev_watcher);
-        p_watcher->on_event(revents);
+        p_watcher->on_event(revents, (void*)p_watcher);
     }
 
   public:
@@ -26,7 +26,7 @@ class Watcher {
 
     /* Constructor */
     Watcher(OnEvent&& on_event, const std::shared_ptr<PlatformLoop>& sp_loop)
-        : ev({}), on_event(std::forward<OnEvent>(on_event)), p_loop(sp_loop->raw()) {
+        : ev({}), on_event(std::forward<OnEvent>(on_event)), p_loop(sp_loop->raw) {
         ev_init(&ev, Watcher::callback);
     }
 
@@ -134,12 +134,6 @@ class IoWatcher : public Watcher<ev_io> {
     IoWatcher(OnEvent&& on_event, const std::shared_ptr<PlatformLoop>& sp_loop)
         : Watcher<ev_io>(std::forward<OnEvent>(on_event), sp_loop) {}
 
-protected:
-    /* Return true if is buffer watcher */
-    virtual bool is_buffer() noexcept {
-        return false;
-    }
-
 };
 }
-#endif // SQUALL__EVENT_LOOP_HXX
+#endif // SQUALL__PLATFORM_WATCHERS_HXX

@@ -9,23 +9,23 @@ using Dispatcher = squall::Dispatcher<const char*>;
 
 
 int main(int argc, char const* argv[]) {
-    auto sp_loop = PlatformLoop::create();
+    auto sp_loop = PlatformLoop::createShared();
 
-    Dispatcher disp([&](const char* name, int revents) {
-        if (revents == Event::Timeout) {
+    Dispatcher disp([&](const char* name, int revents, void* payload) {
+        if (revents == Event::TIMEOUT) {
             std::cout << "Hello, " << name << "! (" << revents << ")" << std::endl;
-        } else if (revents == Event::Cleanup) {
+        } else if (revents == Event::CLEANUP) {
             if (strcmp("SIGINT", name) != 0)
                 std::cout << "Bye, " << name << "! (" << revents << ")" << std::endl;
-        } else if (revents == Event::Signal) {
+        } else if (revents == Event::SIGNAL) {
             std::cout << "\nGot " << name << ". (" << revents << ")" << std::endl;
             sp_loop->stop();
         }
     }, sp_loop);
 
-    disp.setup_timer("Alesh", 1.0);
-    disp.setup_timer("World", 2.5);
-    disp.setup_signal("SIGINT", SIGINT);
+    disp.setupTimerWatching("Alesh", 1.0);
+    disp.setupTimerWatching("World", 2.5);
+    disp.setupSignalWatching("SIGINT", SIGINT);
     sp_loop->start();
     return 0;
 }

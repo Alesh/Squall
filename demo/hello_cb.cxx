@@ -1,37 +1,42 @@
 #include <iostream>
-#include "cb/EventLoop.hxx"
+#include "EventLoop.hxx"
 
 using squall::Event;
+using squall::EventLoop;
 
 int main(int argc, char const* argv[]) {
 
     int cnt = 0;
     EventLoop event_loop;
 
-    event_loop.setup_timer([](int revents) {
-        if (revents == Event::Timeout)
+    auto handle = event_loop.setupTimerWatching([](int revents) {
+        if (revents == Event::TIMEOUT)
             std::cout << "Hello, Alesh! (" << revents << ")" << std::endl;
-        if (revents == Event::Cleanup)
+        if (revents == Event::CLEANUP)
             std::cout << "Bye, Alesh! (" << revents << ")" << std::endl;
-        return true;
     }, 1.0);
 
-    event_loop.setup_timer([&cnt](int revents) {
-        if (revents == Event::Timeout) {
+    event_loop.setupTimerWatching([&](int revents) {
+        if (revents == Event::TIMEOUT) {
             std::cout << "Hello, World! (" << revents << ")" << std::endl;
             cnt++;
         }
-        if (revents == Event::Cleanup)
+        if (revents == Event::CLEANUP)
             std::cout << "Bye, World! (" << revents << ")" << std::endl;
-        return (cnt < 3);
+        if (cnt > 3)
+            event_loop.cancelTimerWatching(handle);
     }, 2.5);
 
-    event_loop.setup_signal([&event_loop](int revents) {
-        if (revents == Event::Signal) {
+    event_loop.setupTimeoutWatching([&](int revents) {
+        std::cout << "The show has done!" << std::endl;
+        event_loop.stop();
+    }, 60);
+
+    event_loop.setupSignalWatching([&event_loop](int revents) {
+        if (revents == Event::SIGNAL) {
             std::cout << "\nGot SIGINT. (" << revents << ")" << std::endl;
             event_loop.stop();
         }
-        return false;
     }, SIGINT);
 
     event_loop.start();

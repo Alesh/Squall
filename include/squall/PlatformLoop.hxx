@@ -10,70 +10,69 @@ namespace squall {
 
 /* Event codes */
 enum Event : int {
-    Read = EV_READ,
-    Write = EV_WRITE,
-    Timeout = EV_TIMER,
-    Signal = EV_SIGNAL,
-    Error = EV_ERROR,
-    Cleanup = EV_CLEANUP,
+    READ = EV_READ,
+    WRITE = EV_WRITE,
+    TIMEOUT = EV_TIMER,
+    SIGNAL = EV_SIGNAL,
+    ERROR = EV_ERROR,
+    CLEANUP = EV_CLEANUP,
 };
 
 /* Event handler */
-using OnEvent = std::function<void(int revents)>;
+using OnEvent = std::function<void(int revents, void* payload)>;
 
 
 /* Platform event Loop */
 class PlatformLoop : NonCopyable {
+
+    template <typename A>
+    friend class Watcher;
+
   public:
     /* Return true if is active */
     bool running() const noexcept {
-        return m_running;
-    }
-
-    /* Raw pointer to platform event loop */
-    struct ev_loop* raw() const noexcept {
-        return m_raw;
+        return running_;
     }
 
     /* Returns created pointer to new loop */
-    static std::shared_ptr<PlatformLoop> create(int flag = EVFLAG_AUTO) {
+    static std::shared_ptr<PlatformLoop> createShared(int flag = EVFLAG_AUTO) {
         return std::shared_ptr<PlatformLoop>(new PlatformLoop(flag));
     }
 
     /* Destructor. */
     ~PlatformLoop() {
-        if (!ev_is_default_loop(m_raw))
-            ev_loop_destroy(m_raw);
+        if (!ev_is_default_loop(raw))
+            ev_loop_destroy(raw);
     }
 
     /* Starts event dispatching. */
     void start() {
-        m_running = true;
-        while (m_running) {
-            if (!ev_run(m_raw, EVRUN_ONCE))
-                m_running = false;
+        running_ = true;
+        while (running_) {
+            if (!ev_run(raw, EVRUN_ONCE))
+                running_ = false;
         }
     }
 
     /* Stops event dispatching. */
     void stop() noexcept {
-        if (m_running) {
-            m_running = false;
-            ev_break(m_raw, EVBREAK_ONE);
+        if (running_) {
+            running_ = false;
+            ev_break(raw, EVBREAK_ONE);
         }
     }
 
   private:
-    struct ev_loop* m_raw;
-    bool m_running = false;
+    struct ev_loop* raw;
+    bool running_ = false;
 
     /* Constructor. */
     PlatformLoop(int flag) {
         if (flag == -1)
-            m_raw = ev_default_loop(EVFLAG_AUTO);
+            raw = ev_default_loop(EVFLAG_AUTO);
         else
-            m_raw = ev_loop_new(flag);
+            raw = ev_loop_new(flag);
     }
 };
 }
-#endif // SQUALL__EVENT_LOOP_HXX
+#endif // SQUALL__PLATFORM_LOOP_HXX
