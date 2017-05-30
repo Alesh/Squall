@@ -29,7 +29,7 @@ class PlatformLoop : NonCopyable {
     friend class Watcher;
 
   public:
-    /* Return true if is active */
+    /* Return true if is running */
     bool running() const noexcept {
         return running_;
     }

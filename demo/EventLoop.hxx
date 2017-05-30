@@ -53,7 +53,8 @@ class EventLoop : NonCopyable {
     /** Releases all associated resources. */
     void release() {
         if (active()) {
-            ///////
+            ////
+            dispatcher.release();
             sp_loop.reset();
         }
     }
@@ -66,10 +67,10 @@ class EventLoop : NonCopyable {
     Handle setupIoWatching(Callback&& callback, int fd, int mode) {
         if (active()) {
             auto handle = std::shared_ptr<Callback>(new Callback(std::forward<Callback>(callback)));
-            if (dispatcher.setupIoWatching(handle, fd, mode))
-                return handle;
+            dispatcher.setupIoWatching(handle, fd, mode);
+            return handle;
         }
-        return std::shared_ptr<Callback>(nullptr);
+        throw exc::CannotSetupWatching();
     }
 
     /**
@@ -96,10 +97,10 @@ class EventLoop : NonCopyable {
     Handle setupTimerWatching(Callback&& callback, double seconds) {
         if (active()) {
             auto handle = std::shared_ptr<Callback>(new Callback(std::forward<Callback>(callback)));
-            if (dispatcher.setupTimerWatching(handle, seconds))
-                return handle;
+            dispatcher.setupTimerWatching(handle, seconds);
+            return handle;
         }
-        return std::shared_ptr<Callback>(nullptr);
+        throw exc::CannotSetupWatching();
     }
 
     /**
@@ -139,10 +140,10 @@ class EventLoop : NonCopyable {
      Handle setupSignalWatching(Callback&& callback, int signum) {
         if (active()) {
             auto handle = std::shared_ptr<Callback>(new Callback(std::forward<Callback>(callback)));
-            if (dispatcher.setupSignalWatching(handle, signum))
-                return handle;
+            dispatcher.setupSignalWatching(handle, signum);
+            return handle;
         }
-        return std::shared_ptr<Callback>(nullptr);
+        throw exc::CannotSetupWatching();
      }
 
 

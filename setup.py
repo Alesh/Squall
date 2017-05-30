@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(**{
     'name': 'squall',
-    'version': '0.1.dev20170524',
+    'version': '0.1.dev20170530',
     'author': 'Alexey Poryadin',
     'author_email': 'alexey.poryadin@gmail.com',
     'description': "Includes files for using the Squall template library"

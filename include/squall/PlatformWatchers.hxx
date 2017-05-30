@@ -19,8 +19,8 @@ class Watcher {
     }
 
   public:
-    /* Return true if this is active. */
-    bool active() noexcept {
+    /* Return true if this is running. */
+    bool running() const noexcept {
         return (ev_is_active(&ev) != 0);
     }
 
@@ -44,7 +44,7 @@ class Watcher {
 
 template <>
 inline bool Watcher<ev_io>::cancel() {
-    if (active()) {
+    if (running()) {
         ev_io_stop(p_loop, &ev);
         return true;
     }
@@ -54,13 +54,13 @@ inline bool Watcher<ev_io>::cancel() {
 template <>
 template <>
 inline bool Watcher<ev_io>::setup<int, int>(int fd, int mode) {
-    if (active())
+    if (running())
         cancel();
     mode = (mode & (EV_READ | EV_WRITE));
     ev_io_set(&ev, fd, mode);
     if ((fd >= 0) && (mode > 0)) {
         ev_io_start(p_loop, &ev);
-        return active();
+        return running();
     }
     return false;
 }
@@ -68,7 +68,7 @@ inline bool Watcher<ev_io>::setup<int, int>(int fd, int mode) {
 
 template <>
 inline bool Watcher<ev_timer>::cancel() {
-    if (active()) {
+    if (running()) {
         ev_timer_stop(p_loop, &ev);
         return true;
     }
@@ -78,12 +78,12 @@ inline bool Watcher<ev_timer>::cancel() {
 template <>
 template <>
 inline bool Watcher<ev_timer>::setup<double, double>(double after, double repeat) {
-    if (active())
+    if (running())
         cancel();
     if (after >= 0) {
         ev_timer_set(&ev, after + (ev_time() - ev_now(p_loop)), (repeat > 0 ? repeat : 0));
         ev_timer_start(p_loop, &ev);
-        return active();
+        return running();
     }
     return false;
 }
@@ -91,7 +91,7 @@ inline bool Watcher<ev_timer>::setup<double, double>(double after, double repeat
 
 template <>
 inline bool Watcher<ev_signal>::cancel() {
-    if (active()) {
+    if (running()) {
         ev_signal_stop(p_loop, &ev);
         return true;
     }
@@ -101,12 +101,12 @@ inline bool Watcher<ev_signal>::cancel() {
 template <>
 template <>
 inline bool Watcher<ev_signal>::setup<int>(int signum) {
-    if (active())
+    if (running())
         cancel();
     if (signum > 0) {
         ev_signal_set(&ev, signum);
         ev_signal_start(p_loop, &ev);
-        return active();
+        return running();
     }
     return false;
 }
@@ -121,12 +121,12 @@ class IoWatcher : public Watcher<ev_io> {
 
   public:
     /* File descriptor */
-    int fd() noexcept {
+    int fd() const noexcept {
         return ev.fd;
     }
 
     /* Current watching mode */
-    int mode() noexcept {
+    int mode() const noexcept {
         return ev.events & (EV_READ | EV_WRITE);
     }
 

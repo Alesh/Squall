@@ -15,6 +15,14 @@ using std::placeholders::_2;
 
 
 namespace squall {
+namespace exc {
+
+class CannotSetupWatching : public std::runtime_error {
+  public:
+    CannotSetupWatching(std::string message = "")
+        : std::runtime_error(message.size() > 0 ? message : "Error while set up event watching") {}
+};
+}
 
 
 /* Contexted event dispatcher. */
@@ -25,14 +33,15 @@ class Dispatcher : NonCopyable {
 
   public:
     /** Returns true if this dispatcher is active. */
-    bool active() noexcept {
+    bool active() const noexcept {
         return (sp_loop.get() != nullptr);
     };
+
 
     /**
      * Returns const reference to using shared pointer to event loop.
      */
-    const std::shared_ptr<PlatformLoop>& sharedLoop() noexcept {
+    const std::shared_ptr<PlatformLoop>& sharedLoop() const noexcept {
         return sp_loop;
     }
 
@@ -73,25 +82,25 @@ class Dispatcher : NonCopyable {
      * Setup to call event handler for a given `ctx`
      * when the I/O device with a given `fd` would be to read and/or write `mode`.
      */
-    bool setupIoWatching(Ctx ctx, int fd, int mode) {
+    void setupIoWatching(Ctx ctx, int fd, int mode) {
         if (active()) {
             auto found = io_watchers.find(ctx);
             if (found != io_watchers.end()) {
                 auto p_watcher = found->second.get();
                 if (p_watcher->setup(fd, mode))
-                    return true;
+                    return;
             } else {
                 auto up_watcher = std::unique_ptr<IoWatcher>(
                     new IoWatcher(std::bind(ctx_target, ctx, _1, _2), sharedLoop()));
                 if (up_watcher->setup(fd, mode)) {
                     auto result = io_watchers.insert(std::make_pair(ctx, std::move(up_watcher)));
                     if (result.second)
-                        return true;
+                        return;
                     up_watcher->cancel();
                 }
             }
         }
-        return false;
+        throw exc::CannotSetupWatching();
     }
 
     /**
@@ -130,26 +139,26 @@ class Dispatcher : NonCopyable {
      * Setup to call event handler for a given `ctx`
      * every `seconds`.
      */
-    bool setupTimerWatching(Ctx ctx, double seconds) {
+    void setupTimerWatching(Ctx ctx, double seconds) {
         if (active()) {
             seconds = (seconds > 0) ? seconds : 0;
             auto found = timer_watchers.find(ctx);
             if (found != timer_watchers.end()) {
                 auto p_watcher = found->second.get();
                 if (p_watcher->setup(seconds, seconds))
-                    return true;
+                    return;
             } else {
                 auto up_watcher = std::unique_ptr<TimerWatcher>(
                     new TimerWatcher(std::bind(ctx_target, ctx, _1, _2), sharedLoop()));
                 if (up_watcher->setup(seconds, seconds)) {
                     auto result = timer_watchers.insert(std::make_pair(ctx, std::move(up_watcher)));
                     if (result.second)
-                        return true;
+                        return;
                     up_watcher->cancel();
                 }
             }
         }
-        return false;
+        throw exc::CannotSetupWatching();
     }
 
     /**
@@ -172,25 +181,25 @@ class Dispatcher : NonCopyable {
      * Setup to call event handler for a given `ctx`
      * when the system signal with a given `signum` recieved.
      */
-    bool setupSignalWatching(Ctx ctx, int signum) {
+    void setupSignalWatching(Ctx ctx, int signum) {
         if (active()) {
             auto found = signal_watchers.find(ctx);
             if (found != signal_watchers.end()) {
                 auto p_watcher = found->second.get();
                 if (p_watcher->setup(signum))
-                    return true;
+                    return;
             } else {
                 auto up_watcher = std::unique_ptr<SignalWatcher>(
                     new SignalWatcher(std::bind(ctx_target, ctx, _1, _2), sharedLoop()));
                 if (up_watcher->setup(signum)) {
                     auto result = signal_watchers.insert(std::make_pair(ctx, std::move(up_watcher)));
                     if (result.second)
-                        return true;
+                        return;
                     up_watcher->cancel();
                 }
             }
         }
-        return false;
+        throw exc::CannotSetupWatching();
     }
 
     /**
