@@ -16,6 +16,7 @@ enum Event : int {
     SIGNAL = EV_SIGNAL,
     ERROR = EV_ERROR,
     CLEANUP = EV_CLEANUP,
+    BUFFER = EV_CUSTOM,
 };
 
 /* Event handler */
