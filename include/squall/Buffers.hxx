@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <functional>
 #include <cassert>
+#include "Exceptions.hxx"
 #include "NonCopyable.hxx"
 #include "PlatformLoop.hxx"
 #include "PlatformWatchers.hxx"
@@ -104,13 +105,13 @@ class EventBuffer : NonCopyable {
 
     /* Pause buffer operations */
     void pause() {
-        if (watcher.mode() == mode)
+        if ((active_) && (watcher.mode() == mode))
             watcher.setup(fd(), 0);
     }
 
     /* Pause resume operations */
     void resume() {
-        if (watcher.mode() == 0)
+        if ((active_) && (watcher.mode() == 0))
             watcher.setup(fd(), mode);
     }
 
@@ -162,12 +163,15 @@ class OutcomingBuffer : public EventBuffer {
     /* Setup buffer task */
     intptr_t setup(OnEvent&& on_event, size_t threshold) {
         cancel(); // Cancel previos buffer task
-        if (threshold > maxSize() - blockSize())
-            threshold = maxSize() - blockSize();
-        // setup new buffer task
-        threshold_ = threshold;
-        on_event_ = std::forward<OnEvent>(on_event);
-        return lastResult();
+        if (active()) {
+            if (threshold > maxSize() - blockSize())
+                threshold = maxSize() - blockSize();
+            // setup new buffer task
+            threshold_ = threshold;
+            on_event_ = std::forward<OnEvent>(on_event);
+            return lastResult();
+        }
+        throw exc::CannotSetupWatching();
     }
 
     /* Cancels buffer task. */
@@ -211,10 +215,9 @@ class OutcomingBuffer : public EventBuffer {
             if (transmiter_result.first > 0) {
                 buff.erase(buff.begin(), buff.begin() + transmiter_result.first);
             } else {
-                if (transmiter_result.second > 0) {
+                revents = Event::BUFFER | Event::ERROR;
+                if (transmiter_result.second > 0)
                     last_error = transmiter_result.second;
-                    revents = Event::BUFFER | Event::ERROR;
-                }
             }
         } else
             pause();
@@ -226,6 +229,117 @@ class OutcomingBuffer : public EventBuffer {
         revents = 0;
         if (lastResult() == 1)
             revents = Event::BUFFER | Event::WRITE;
+        return revents;
+    }
+};
+
+
+/* Event-driven incoming buffer. */
+class IncomingBuffer : public EventBuffer {
+    template <typename T>
+    friend class Dispatcher;
+
+  public:
+    /* Data receiver interface */
+    using Receiver = std::function<std::pair<size_t, int>(char* buff, size_t block_size)>;
+
+    /* Calculated buffer task result */
+    intptr_t lastResult() const noexcept {
+        if (on_event_) {
+            if (delimiter_.size() > 0) {
+                auto found = std::search(buff.begin(), buff.end(), delimiter_.begin(), delimiter_.end());
+                if (found != buff.end()) {
+                    auto result = std::distance(buff.begin(), found) + delimiter_.size();
+                    return (result < max_size_) ? result : -1;
+                }
+                else {
+                    if (size() >= max_size_)
+                        return -1;
+                }
+            } else if (size() >= max_size_)
+                return max_size_;
+        }
+        return 0;
+    }
+
+    /* Setup buffer task */
+    intptr_t setup(OnEvent&& on_event, const std::vector<char>& delimiter, size_t max_size) {
+        cancel(); // Cancel previos buffer task
+        if (active()) {
+            max_size = (max_size < maxSize()) ? max_size : maxSize();
+            // setup new buffer task
+            max_size_ = max_size;
+            delimiter_ = delimiter;
+            on_event_ = std::forward<OnEvent>(on_event);
+            return lastResult();
+        }
+        throw exc::CannotSetupWatching();
+    }
+
+    /* Cancels buffer task. */
+    void cancel() noexcept {
+        max_size_ = 0;
+        delimiter_.clear();
+        EventBuffer::cancel();
+    }
+
+    /* Read bytes from incoming buffer how much is there, but not more `number`. */
+    std::vector<char> read(size_t number) {
+        std::vector<char> result;
+        if (active()) {
+            number = (number < size()) ? number : size();
+            if (number > 0) {
+                std::copy(buff.begin(), buff.begin() + number, std::back_inserter(result));
+                buff.erase(buff.begin(), buff.begin() + number);
+                resume(); // runs buffer if it paused
+            }
+        }
+        return result;
+    }
+
+  protected:
+    Receiver receiver;
+    std::vector<char> delimiter_;
+    size_t max_size_;
+
+    /* Constructor */
+    IncomingBuffer(const std::shared_ptr<PlatformLoop>& sp_loop, Receiver receiver, int fd, size_t block_size,
+                   size_t max_size)
+        : EventBuffer(sp_loop, fd, static_cast<int>(Event::READ), block_size, max_size),
+          receiver(std::forward<Receiver>(receiver)), max_size_(max_size) {
+        resume();
+    }
+
+    /* Filling a buffer */
+    virtual int process_buffer(int revents) {
+        revents = 0;
+        auto number = maxSize() - size();
+        number = (number < blockSize()) ? number : blockSize();
+        if (number > 0) {
+            auto from = size();
+            buff.resize(buff.size() + number);
+            auto receiver_result = receiver(&(*(buff.begin() + from)), number);
+            if (receiver_result.first > 0) {
+                if (receiver_result.first != number)
+                    buff.resize(buff.size() - number + receiver_result.first);
+            } else {
+                revents = Event::BUFFER | Event::ERROR;
+                if (receiver_result.second > 0)
+                    last_error = receiver_result.second;
+            }
+        } else
+            pause();
+        return revents;
+    }
+
+    /* Process buffer task */
+    virtual int process_task(int revents) {
+        revents = 0;
+        auto result = lastResult();
+        if (result > 1)
+            revents = Event::BUFFER | Event::READ;
+        else if (result < 0)
+            revents = Event::BUFFER | Event::READ | Event::ERROR;
         return revents;
     }
 };

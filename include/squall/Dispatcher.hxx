@@ -6,6 +6,7 @@
 #include <functional>
 #include <unordered_map>
 #include <unordered_set>
+#include "Exceptions.hxx"
 #include "NonCopyable.hxx"
 #include "PlatformLoop.hxx"
 #include "PlatformWatchers.hxx"
@@ -15,14 +16,6 @@ using std::placeholders::_2;
 
 
 namespace squall {
-namespace exc {
-
-class CannotSetupWatching : public std::runtime_error {
-  public:
-    CannotSetupWatching(std::string message = "")
-        : std::runtime_error(message.size() > 0 ? message : "Error while set up event watching") {}
-};
-}
 
 
 /* Contexted event dispatcher. */
