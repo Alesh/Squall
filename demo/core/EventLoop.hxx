@@ -1,19 +1,21 @@
 #ifndef SQUALL__EVENT_LOOP__HXX
 #define SQUALL__EVENT_LOOP__HXX
-#include <squall/Dispatcher.hxx>
-#include <squall/NonCopyable.hxx>
-#include <squall/PlatformLoop.hxx>
+#include <squall/core/Dispatcher.hxx>
+#include <squall/core/NonCopyable.hxx>
+#include <squall/core/PlatformLoop.hxx>
 
 using std::placeholders::_1;
 using std::placeholders::_2;
 
 namespace squall {
 
+using core::Event;
+
 
 /**
  * Event loop implementation  for callback.
  */
-class EventLoop : NonCopyable {
+class EventLoop : core::NonCopyable {
   public:
     using Callback = std::function<void(int revents) noexcept>;
     using Handle = const std::shared_ptr<Callback>;
@@ -30,7 +32,7 @@ class EventLoop : NonCopyable {
 
     /** Constructor */
     EventLoop()
-        : sp_loop(PlatformLoop::createShared()),
+        : sp_loop(core::PlatformLoop::createShared()),
           dispatcher(std::bind(&EventLoop::on_event, this, _1, _2), sp_loop) {}
 
     /** Destructor */
@@ -118,10 +120,12 @@ class EventLoop : NonCopyable {
      */
     Handle setupTimeoutWatching(Callback&& callback, double seconds) {
         auto wrapped = Callback(std::forward<Callback>(callback));
-        Handle handle = setupTimerWatching([this, &handle, wrapped](int revents) {
-            this->cancelTimerWatching(handle);
-            wrapped(revents);
-        }, seconds);
+        Handle handle = setupTimerWatching(
+            [this, &handle, wrapped](int revents) {
+                this->cancelTimerWatching(handle);
+                wrapped(revents);
+            },
+            seconds);
         return handle;
     }
 
@@ -137,14 +141,14 @@ class EventLoop : NonCopyable {
      * Setup to call `callback` when
      * the system signal with a given `signum` recieved.
      */
-     Handle setupSignalWatching(Callback&& callback, int signum) {
+    Handle setupSignalWatching(Callback&& callback, int signum) {
         if (active()) {
             auto handle = std::shared_ptr<Callback>(new Callback(std::forward<Callback>(callback)));
             dispatcher.setupSignalWatching(handle, signum);
             return handle;
         }
         throw exc::CannotSetupWatching();
-     }
+    }
 
 
     /**
@@ -158,8 +162,8 @@ class EventLoop : NonCopyable {
     }
 
   private:
-    std::shared_ptr<PlatformLoop> sp_loop;
-    Dispatcher<std::shared_ptr<Callback>> dispatcher;
+    std::shared_ptr<core::PlatformLoop> sp_loop;
+    core::Dispatcher<std::shared_ptr<Callback>> dispatcher;
 
     void on_event(std::shared_ptr<Callback> handle, int revents) {
         auto callback = *handle.get();

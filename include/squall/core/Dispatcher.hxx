@@ -1,5 +1,5 @@
-#ifndef SQUALL__DISPATCHER_HXX
-#define SQUALL__DISPATCHER_HXX
+#ifndef SQUALL__CORE__DISPATCHER_HXX
+#define SQUALL__CORE__DISPATCHER_HXX
 
 #include <memory>
 #include <utility>
@@ -14,8 +14,8 @@
 using std::placeholders::_1;
 using std::placeholders::_2;
 
-
 namespace squall {
+namespace core {
 
 
 /* Contexted event dispatcher. */
@@ -218,5 +218,6 @@ class Dispatcher : NonCopyable {
     std::unordered_map<Ctx, std::unique_ptr<TimerWatcher>> timer_watchers;
     std::unordered_map<Ctx, std::unique_ptr<SignalWatcher>> signal_watchers;
 };
-}
-#endif // SQUALL__DISPATCHER_HXX
+} // squall::core
+} // squall
+#endif // SQUALL__CORE__DISPATCHER_HXX

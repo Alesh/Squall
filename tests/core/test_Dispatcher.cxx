@@ -1,15 +1,15 @@
 #include <string>
 #include <memory>
-#include <squall/Dispatcher.hxx>
-#include <squall/PlatformLoop.hxx>
-#include "catch.hpp"
+#include <squall/core/Dispatcher.hxx>
+#include <squall/core/PlatformLoop.hxx>
+#include "../catch.hpp"
 
-using squall::Event;
-using squall::PlatformLoop;
-using squall::Dispatcher;
+using squall::core::Event;
+using squall::core::PlatformLoop;
+using squall::core::Dispatcher;
 
 
-TEST_CASE("Contexted event dispatcher; unit test", "[squall::Dispatcher]") {
+TEST_CASE("Contexted event dispatcher; unit test", "[dispatcher]") {
 
     int cnt = 0;
     std::string result;

@@ -1,5 +1,5 @@
-#ifndef SQUALL__PLATFORM_LOOP_HXX
-#define SQUALL__PLATFORM_LOOP_HXX
+#ifndef SQUALL__CORE__PLATFORM_LOOP_HXX
+#define SQUALL__CORE__PLATFORM_LOOP_HXX
 
 #include <ev.h>
 #include <memory>
@@ -7,6 +7,8 @@
 #include "NonCopyable.hxx"
 
 namespace squall {
+namespace core {
+
 
 /* Event codes */
 enum Event : int {
@@ -75,5 +77,6 @@ class PlatformLoop : NonCopyable {
             raw = ev_loop_new(flag);
     }
 };
-}
-#endif // SQUALL__PLATFORM_LOOP_HXX
+} // squall::core
+} // squall
+#endif // SQUALL__CORE__PLATFORM_LOOP_HXX

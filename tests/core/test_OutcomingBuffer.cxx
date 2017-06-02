@@ -1,15 +1,15 @@
 #include <string>
 #include <memory>
 #include <iostream>
-#include <squall/Buffers.hxx>
-#include <squall/Dispatcher.hxx>
-#include <squall/PlatformLoop.hxx>
-#include "catch.hpp"
+#include <squall/core/Buffers.hxx>
+#include <squall/core/Dispatcher.hxx>
+#include <squall/core/PlatformLoop.hxx>
+#include "../catch.hpp"
 
-using squall::Event;
-using squall::PlatformLoop;
-using squall::OutcomingBuffer;
-using squall::Dispatcher;
+using squall::core::Event;
+using squall::core::PlatformLoop;
+using squall::core::OutcomingBuffer;
+using squall::core::Dispatcher;
 
 
 enum : intptr_t { MARK = -1, HANDLER = -2, TRANSMITER = -3, TRANSMITER_ERR = -4 };
@@ -139,7 +139,7 @@ TEST_CASE("Unittest squall::OutcommingBuffer", "[buffer]") {
     REQUIRE(out.setup(handler, 0) == 0); // await flushing (buffer size > 0)
     REQUIRE(out.awaiting());
     out.triggerEvent(Event::ERROR); // emul. internal event loop error
-    REQUIRE(!out.awaiting());  // Error cancel task and pause running
+    REQUIRE(!out.awaiting());       // Error cancel task and pause running
 
     callog.push_back(MARK);
     callog.push_back(8);
@@ -157,13 +157,13 @@ TEST_CASE("Unittest squall::OutcommingBuffer", "[buffer]") {
     out.setBufferError(13);
     out.triggerEvent(Event::WRITE);
     REQUIRE((out.size()) == 4);
-    REQUIRE(!out.awaiting());  // Error cancel task and pause running
+    REQUIRE(!out.awaiting()); // Error cancel task and pause running
 
     callog.push_back(MARK);
     callog.push_back(10);
     out.setBufferError(0);
     REQUIRE(out.setup(handler, 0) == 0); // await flushing (buffer size > 0)
-    REQUIRE(out.awaiting()); // new task resume running
+    REQUIRE(out.awaiting());             // new task resume running
     out.triggerEvent(Event::WRITE);
     REQUIRE((out.size()) == 0);
 
@@ -171,8 +171,8 @@ TEST_CASE("Unittest squall::OutcommingBuffer", "[buffer]") {
     callog.push_back(11);
     REQUIRE((out.write(cnv("01234567")) == 8));
     REQUIRE(out.setup(handler, 0) == 0); // await flushing (buffer size > 0)
-    out.setApplySize(0); // emul. connection reset or eof
-    REQUIRE(out.awaiting()); // new task resume running
+    out.setApplySize(0);                 // emul. connection reset or eof
+    REQUIRE(out.awaiting());             // new task resume running
     out.triggerEvent(Event::WRITE);
     REQUIRE((out.size()) == 8);
 
@@ -181,7 +181,7 @@ TEST_CASE("Unittest squall::OutcommingBuffer", "[buffer]") {
     callog.push_back(12);
     REQUIRE(out.active());
     REQUIRE(out.setup(handler, 0) == 0); // await flushing (buffer size > 0)
-    out.release(); // Done!
+    out.release();                       // Done!
     REQUIRE((out.size()) == 0);
     REQUIRE(!out.awaiting());
     REQUIRE(!out.active());

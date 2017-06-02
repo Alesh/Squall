@@ -1,11 +1,11 @@
 #include <iostream>
-#include <squall/PlatformLoop.hxx>
-#include <squall/Dispatcher.hxx>
+#include <squall/core/PlatformLoop.hxx>
+#include <squall/core/Dispatcher.hxx>
 
 
-using squall::Event;
-using squall::PlatformLoop;
-using Dispatcher = squall::Dispatcher<const char*>;
+using squall::core::Event;
+using squall::core::PlatformLoop;
+using Dispatcher = squall::core::Dispatcher<const char*>;
 
 
 int main(int argc, char const* argv[]) {

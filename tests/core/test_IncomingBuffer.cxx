@@ -1,15 +1,15 @@
 #include <string>
 #include <memory>
 #include <iostream>
-#include <squall/Buffers.hxx>
-#include <squall/Dispatcher.hxx>
-#include <squall/PlatformLoop.hxx>
-#include "catch.hpp"
+#include <squall/core/Buffers.hxx>
+#include <squall/core/Dispatcher.hxx>
+#include <squall/core/PlatformLoop.hxx>
+#include "../catch.hpp"
 
-using squall::Event;
-using squall::PlatformLoop;
-using squall::IncomingBuffer;
-using squall::Dispatcher;
+using squall::core::Event;
+using squall::core::PlatformLoop;
+using squall::core::IncomingBuffer;
+using squall::core::Dispatcher;
 
 
 enum : intptr_t { MARK = -1, HANDLER = -2, RECEIVER = -3, RECEIVER_ERR = -4 };
@@ -111,15 +111,16 @@ TEST_CASE("Unittest squall::IncommingBuffer", "[buffer]") {
     REQUIRE(cnv(in.read(4)) == "XXX\n");
     REQUIRE((in.size()) == 0);
     in.triggerEvent(Event::READ);
-    REQUIRE((in.size()) == 5);  // buffer is not empty
-    REQUIRE(in.awaiting());     // buffer is active
-    REQUIRE(in.lastResult() == 0);  // buffer has not requested delimiter
+    REQUIRE((in.size()) == 5);     // buffer is not empty
+    REQUIRE(in.awaiting());        // buffer is active
+    REQUIRE(in.lastResult() == 0); // buffer has not requested delimiter
 
     callog.push_back(MARK);
     callog.push_back(2);
     in.applyData(cnv("56789\r\n"));
     in.applyData(cnv("01234567\r\n012"));
-    REQUIRE(in.setup(handler, cnv("\r\n"), 100) == 0); // await reading (buffer is not empty, but absent delimiter)
+    REQUIRE(in.setup(handler, cnv("\r\n"), 100) ==
+            0); // await reading (buffer is not empty, but absent delimiter)
     in.triggerEvent(Event::READ);
     in.triggerEvent(Event::READ);
     in.triggerEvent(Event::READ);
@@ -130,7 +131,8 @@ TEST_CASE("Unittest squall::IncommingBuffer", "[buffer]") {
     REQUIRE(in.awaiting());
     in.cancel();
     REQUIRE(!in.awaiting());
-    REQUIRE(in.setup(handler, cnv("\t"), 100) == 0); // await reading (buffer is not empty, but absent delimiter)
+    REQUIRE(in.setup(handler, cnv("\t"), 100) ==
+            0); // await reading (buffer is not empty, but absent delimiter)
     REQUIRE(in.awaiting());
     in.applyData(cnv("3456789"));
     in.applyData(cnv("0123456789"));
@@ -149,15 +151,15 @@ TEST_CASE("Unittest squall::IncommingBuffer", "[buffer]") {
     REQUIRE(cnv(in.read(20)) == "01234567890123456789");
     REQUIRE(in.awaiting());
     in.triggerEvent(Event::ERROR); // emul. internal event loop error
-    REQUIRE(!in.awaiting());  // Error cancel task and pause running
+    REQUIRE(!in.awaiting());       // Error cancel task and pause running
 
     callog.push_back(MARK);
     callog.push_back(5);
     REQUIRE((in.size()) == 12);
     REQUIRE(in.setup(handler, empty_delimiter, 20) == 0);
-    in.setBufferError(13);  // emul. buffer error
+    in.setBufferError(13); // emul. buffer error
     in.triggerEvent(Event::READ);
-    REQUIRE(!in.awaiting());  // Error cancel task and pause running
+    REQUIRE(!in.awaiting()); // Error cancel task and pause running
     REQUIRE(cnv(in.read(6)) == "012345");
     // U can read 6 chars, buffer already has need data
     // Buffer is not cleaned when error occurred
@@ -171,14 +173,14 @@ TEST_CASE("Unittest squall::IncommingBuffer", "[buffer]") {
 
     callog.push_back(MARK);
     callog.push_back(7);
-    REQUIRE(!in.awaiting());  // Error cancel task and pause running
-    in.release(); // Done!
+    REQUIRE(!in.awaiting()); // Error cancel task and pause running
+    in.release();            // Done!
     REQUIRE(!in.active());
 
 
-
-    REQUIRE(callog == std::vector<intptr_t>({
-                          // clang-format off
+    REQUIRE(callog ==
+            std::vector<intptr_t>({
+                // clang-format off
         MARK, 0,
         RECEIVER, 8, 8,
         HANDLER, Event::BUFFER|Event::READ, 8, 0,
@@ -218,6 +220,6 @@ TEST_CASE("Unittest squall::IncommingBuffer", "[buffer]") {
 
         MARK, 7,
 
-                          // clang-format on
-                      }));
+                // clang-format on
+            }));
 }

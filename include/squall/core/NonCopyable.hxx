@@ -1,7 +1,8 @@
-#ifndef SQUALL__NON_COPYABLE_HXX
-#define SQUALL__NON_COPYABLE_HXX
+#ifndef SQUALL__CORE__NON_COPYABLE_HXX
+#define SQUALL__CORE__NON_COPYABLE_HXX
 
 namespace squall {
+namespace core {
 
 /* Instance of this class be no copyable. */
 class NonCopyable {
@@ -12,5 +13,6 @@ class NonCopyable {
     NonCopyable(const NonCopyable&) = delete;
     void operator=(const NonCopyable&) = delete;
 };
-}
-#endif // SQUALL__NON_COPYABLE_HXX
+} // squall::core
+} // squall
+#endif // SQUALL__CORE__NON_COPYABLE_HXX

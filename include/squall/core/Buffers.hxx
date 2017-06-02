@@ -1,5 +1,5 @@
-#ifndef SQUALL__BUFFERS_HXX
-#define SQUALL__BUFFERS_HXX
+#ifndef SQUALL__CORE__BUFFERS_HXX
+#define SQUALL__CORE__BUFFERS_HXX
 #include <vector>
 #include <algorithm>
 #include <functional>
@@ -13,6 +13,7 @@ using std::placeholders::_1;
 using std::placeholders::_2;
 
 namespace squall {
+namespace core {
 
 
 /* Event-driven base buffer. */
@@ -251,8 +252,7 @@ class IncomingBuffer : public EventBuffer {
                 if (found != buff.end()) {
                     auto result = std::distance(buff.begin(), found) + delimiter_.size();
                     return (result < max_size_) ? result : -1;
-                }
-                else {
+                } else {
                     if (size() >= max_size_)
                         return -1;
                 }
@@ -343,5 +343,6 @@ class IncomingBuffer : public EventBuffer {
         return revents;
     }
 };
-}
-#endif // SQUALL__BUFFERS_HXX
+} // squall::core
+} // squall
+#endif // SQUALL__CORE__BUFFERS_HXX

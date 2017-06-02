@@ -1,9 +1,10 @@
-#ifndef SQUALL__PLATFORM_WATCHERS_HXX
-#define SQUALL__PLATFORM_WATCHERS_HXX
-
+#ifndef SQUALL__CORE__PLATFORM_WATCHERS_HXX
+#define SQUALL__CORE__PLATFORM_WATCHERS_HXX
 #include "PlatformLoop.hxx"
 
 namespace squall {
+namespace core {
+
 
 /* Common event watcher */
 template <typename EV>
@@ -133,7 +134,7 @@ class IoWatcher : public Watcher<ev_io> {
     /* Constructor */
     IoWatcher(OnEvent&& on_event, const std::shared_ptr<PlatformLoop>& sp_loop)
         : Watcher<ev_io>(std::forward<OnEvent>(on_event), sp_loop) {}
-
 };
-}
-#endif // SQUALL__PLATFORM_WATCHERS_HXX
+} // squall::core
+} // squall
+#endif // SQUALL__CORE__PLATFORM_WATCHERS_HXX

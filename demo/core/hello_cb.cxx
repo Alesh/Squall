@@ -4,6 +4,7 @@
 using squall::Event;
 using squall::EventLoop;
 
+
 int main(int argc, char const* argv[]) {
 
     int cnt = 0;
