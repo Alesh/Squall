@@ -2,18 +2,15 @@
 #include <memory>
 #include <iostream>
 #include <squall/core/Buffers.hxx>
-#include <squall/core/Dispatcher.hxx>
-#include <squall/core/PlatformLoop.hxx>
 #include "../catch.hpp"
 
 using squall::core::Event;
-using squall::core::PlatformLoop;
 using squall::core::OutcomingBuffer;
-using squall::core::Dispatcher;
+using std::placeholders::_1;
+using std::placeholders::_2;
 
 
-enum : intptr_t { MARK = -1, HANDLER = -2, TRANSMITER = -3, TRANSMITER_ERR = -4 };
-
+enum : intptr_t { MARK = -1, HANDLER = -2, TRANSMITER = -3, TRANSMITER_ERR = -4, RESUME = -5, PAUSE = -6 };
 
 inline std::vector<char> cnv(const std::string& str) {
     return std::vector<char>(str.begin(), str.end());
@@ -25,17 +22,17 @@ class OutcomingBufferTest : public OutcomingBuffer {
     size_t apply_size;
     std::vector<intptr_t>& callog_;
 
-    std::pair<size_t, int> transmiter(const char* buff, size_t block_size) {
+    std::pair<size_t, int> transmiter(const char* buff, size_t size) {
         if (buffer_error == 0) {
             callog_.push_back(TRANSMITER);
-            callog_.push_back(block_size);
-            auto transmited = (apply_size < blockSize()) ? apply_size : blockSize();
-            transmited = block_size < transmited ? block_size : transmited;
+            callog_.push_back(size);
+            auto transmited = (apply_size < block_size) ? apply_size : block_size;
+            transmited = size < transmited ? size : transmited;
             callog_.push_back(transmited);
             return std::make_pair(transmited, 0);
         } else {
             callog_.push_back(TRANSMITER_ERR);
-            callog_.push_back(block_size);
+            callog_.push_back(size);
             callog_.push_back(buffer_error);
             return std::make_pair(0, buffer_error);
         }
@@ -43,11 +40,10 @@ class OutcomingBufferTest : public OutcomingBuffer {
 
   public:
     /* Constructor */
-    OutcomingBufferTest(std::vector<intptr_t>& callog, size_t block_size, size_t max_size)
-        : OutcomingBuffer(PlatformLoop::createShared(),
-                          std::bind(&OutcomingBufferTest::transmiter, this, _1, _2), -1, block_size,
-                          max_size),
-          buffer_error(0), apply_size(0), callog_(callog) {}
+    OutcomingBufferTest(std::vector<intptr_t>& callog, OutcomingBuffer::FlowCtrl&& flow_ctrl, size_t block_size, size_t max_size)
+        : OutcomingBuffer(std::bind(&OutcomingBufferTest::transmiter, this, _1, _2),
+                          std::forward<FlowCtrl>(flow_ctrl), block_size, max_size),
+          buffer_error(0), apply_size(max_size), callog_(callog) {}
 
 
     void setBufferError(int value) {
@@ -55,22 +51,27 @@ class OutcomingBufferTest : public OutcomingBuffer {
     }
 
     void setApplySize(size_t value) {
-        value = value < blockSize() ? value : blockSize();
+        value = value < block_size ? value : block_size;
         apply_size = value;
     }
 
-    void triggerEvent(int events) {
-        event_handler(events, nullptr);
-    }
-
-    using OutcomingBuffer::release;
+    using OutcomingBuffer::operator();
+    using OutcomingBuffer::cleanup;
 };
 
 
-TEST_CASE("Unittest squall::OutcommingBuffer", "[buffer]") {
-
+TEST_CASE("Unittest squall::core::OutcommingBuffer", "[buffers]") {
     std::vector<intptr_t> callog;
-    OutcomingBufferTest out(callog, 8, 16);
+
+    auto flow_ctrl = [&callog](bool resume) {
+        if (resume)
+            callog.push_back(RESUME);
+        else
+            callog.push_back(PAUSE);
+        return true;
+    };
+
+    OutcomingBufferTest out(callog, flow_ctrl, 8, 16);
 
     auto handler = [&callog](int revents, void* payload) {
         auto p_buff = static_cast<OutcomingBufferTest*>(payload);
@@ -80,163 +81,191 @@ TEST_CASE("Unittest squall::OutcommingBuffer", "[buffer]") {
         callog.push_back(p_buff->lastError());
     };
     callog.push_back(MARK);
-    callog.push_back(1);
-    REQUIRE(out.active());
+    callog.push_back(1000);
+
+    REQUIRE(!out.active());
+    REQUIRE(out.running());
     REQUIRE((out.size()) == 0);
-    REQUIRE((out.blockSize()) == 8);
-    REQUIRE((out.maxSize()) == 16);
-    out.setApplySize(out.blockSize());
-    REQUIRE((out.write(cnv("0123456789ABCDEFZZZ")) == 16));
+    REQUIRE((out.write(cnv("01234567")) == 8));
+    REQUIRE(!out.active());
+    REQUIRE(out.running());
+    REQUIRE((out.size()) == 8);
+    REQUIRE((out.write(cnv("89ABCDEFZZZ")) == 8));
     REQUIRE((out.size()) == 16);
-    out.triggerEvent(Event::WRITE);
+    out(Event::WRITE);
     REQUIRE((out.size()) == 8);
     out.setApplySize(4);
-    out.triggerEvent(Event::WRITE);
+    out(Event::WRITE);
     REQUIRE((out.size()) == 4);
-    out.triggerEvent(Event::WRITE);
+    out(Event::WRITE);
     REQUIRE((out.size()) == 0);
 
     // #2
     callog.push_back(MARK);
-    callog.push_back(2);
+    callog.push_back(2000);
+    REQUIRE(!out.active());
+    REQUIRE(!out.running());
     REQUIRE(out.setup(handler, 0) == 1); // early result (buffer size <= 0)
     REQUIRE(out.setup(handler, 8) == 1); // early result (buffer size <= 8)
+    REQUIRE(out.active());
+    REQUIRE(!out.running());
     REQUIRE((out.write(cnv("0123456789ABCDEFZZZ")) == 16));
     REQUIRE((out.size()) == 16);
-    out.triggerEvent(Event::WRITE);
-    out.triggerEvent(Event::WRITE);
+    REQUIRE(out.running());
+    out(Event::WRITE);
+    REQUIRE((out.size()) == 12);
+    out(Event::WRITE);
+    REQUIRE((out.size()) == 8);  // event!
 
     callog.push_back(MARK);
-    callog.push_back(3);
-    out.setApplySize(out.blockSize());
+    callog.push_back(3000);
+    out.setApplySize(8);
     REQUIRE((out.size()) == 8);
     REQUIRE(out.setup(handler, 0) == 0); // await flushing (buffer size > 0)
-    out.triggerEvent(Event::WRITE);
+    out(Event::WRITE);
+    REQUIRE((out.size()) == 0);  // event!
+    REQUIRE(!out.running());
+    REQUIRE(out.active());
 
     callog.push_back(MARK);
-    callog.push_back(4);
-    REQUIRE(out.awaiting());
+    callog.push_back(4000);
     REQUIRE((out.write(cnv("01234")) == 5));
-    out.triggerEvent(Event::WRITE);
+    REQUIRE(out.running());
+    out(Event::WRITE);
+    REQUIRE(!out.running());
+    REQUIRE(out.active());
 
     callog.push_back(MARK);
-    callog.push_back(5);
+    callog.push_back(5000);
+    REQUIRE(out.active());
+    REQUIRE(!out.running());
     out.cancel(); // cancels buffer task; no more call handler
-    REQUIRE(!out.awaiting());
+    REQUIRE(!out.running());
+    REQUIRE(!out.active());
     REQUIRE((out.write(cnv("01234")) == 5));
-    out.triggerEvent(Event::WRITE);
+    REQUIRE(out.running());
+    REQUIRE(!out.active());
+    out(Event::WRITE);
+    REQUIRE(!out.active());
+    REQUIRE(!out.running());
 
     callog.push_back(MARK);
-    callog.push_back(6);
+    callog.push_back(6000);
+    REQUIRE(!out.running());
+    REQUIRE(!out.active());
     REQUIRE((out.write(cnv("012345")) == 6));
-    out.triggerEvent(Event::ERROR); // emul. internal event loop error
-    REQUIRE(!out.awaiting());       // and nothing awainitg inactive
-
+    REQUIRE(!out.active());
+    REQUIRE(out.running());
+    out(Event::ERROR); // emul. internal event loop error
+    REQUIRE(!out.active());
+    REQUIRE(!out.running());
 
     callog.push_back(MARK);
-    callog.push_back(7);
+    callog.push_back(7000);
     REQUIRE((out.size()) == 6);
     REQUIRE(out.setup(handler, 0) == 0); // await flushing (buffer size > 0)
-    REQUIRE(out.awaiting());
-    out.triggerEvent(Event::ERROR); // emul. internal event loop error
-    REQUIRE(!out.awaiting());       // Error cancel task and pause running
+    REQUIRE(out.active());
+    REQUIRE(out.running());
+    out(Event::ERROR); // emul. internal event loop error
+    REQUIRE(!out.active()); // Error cancel task and pause running
+    REQUIRE(!out.running());
 
     callog.push_back(MARK);
-    callog.push_back(8);
+    callog.push_back(8000);
     out.setApplySize(4);
     REQUIRE((out.size()) == 6);
     REQUIRE(out.setup(handler, 4) == 0); // await flushing (buffer size > 4)
-    out.triggerEvent(Event::WRITE);
-    REQUIRE((out.size()) == 2);
+    out(Event::WRITE);
+    REQUIRE((out.size()) == 2); // Event!
     REQUIRE((out.write(cnv("012345")) == 6));
-    out.triggerEvent(Event::WRITE);
+    out(Event::WRITE);
     REQUIRE((out.size()) == 4);
+    REQUIRE(out.active());
+    REQUIRE(out.running());
 
     callog.push_back(MARK);
-    callog.push_back(9);
-    out.setBufferError(13);
-    out.triggerEvent(Event::WRITE);
+    callog.push_back(9000);
+    out.setBufferError(13); // emul. buffer writing error
+    out(Event::WRITE);
     REQUIRE((out.size()) == 4);
-    REQUIRE(!out.awaiting()); // Error cancel task and pause running
+    REQUIRE(!out.active()); // Error cancel task and pause running
+    REQUIRE(!out.running());
 
     callog.push_back(MARK);
-    callog.push_back(10);
+    callog.push_back(1000);
     out.setBufferError(0);
     REQUIRE(out.setup(handler, 0) == 0); // await flushing (buffer size > 0)
-    REQUIRE(out.awaiting());             // new task resume running
-    out.triggerEvent(Event::WRITE);
-    REQUIRE((out.size()) == 0);
-
-    callog.push_back(MARK);
-    callog.push_back(11);
-    REQUIRE((out.write(cnv("01234567")) == 8));
-    REQUIRE(out.setup(handler, 0) == 0); // await flushing (buffer size > 0)
-    out.setApplySize(0);                 // emul. connection reset or eof
-    REQUIRE(out.awaiting());             // new task resume running
-    out.triggerEvent(Event::WRITE);
-    REQUIRE((out.size()) == 8);
-
-
-    callog.push_back(MARK);
-    callog.push_back(12);
+    REQUIRE(out.running());              // new task resume running
     REQUIRE(out.active());
-    REQUIRE(out.setup(handler, 0) == 0); // await flushing (buffer size > 0)
-    out.release();                       // Done!
+    out.setApplySize(0);                 // emul/ Connection reset
+    out(Event::WRITE);
+    REQUIRE((out.size()) == 4);
+    REQUIRE(!out.active()); // Error cancel task and pause running
+    REQUIRE(!out.running());
+
+    out.cleanup();
     REQUIRE((out.size()) == 0);
-    REQUIRE(!out.awaiting());
-    REQUIRE(!out.active());
 
 
     REQUIRE(callog == std::vector<intptr_t>({
                           // clang-format off
-        MARK, 1,
+        RESUME,
+        MARK, 1000,
         TRANSMITER, 8, 8,
         TRANSMITER, 8, 4,
         TRANSMITER, 4, 4,
+        PAUSE,
 
-        MARK, 2,
+        MARK, 2000,
+        RESUME,
         TRANSMITER, 8, 4,
         TRANSMITER, 8, 4,
         HANDLER, Event::BUFFER|Event::WRITE, 8, 0,
 
-        MARK, 3,
+        MARK, 3000,
         TRANSMITER, 8, 8,
+        PAUSE,
         HANDLER, Event::BUFFER|Event::WRITE, 0, 0,
 
-        MARK, 4,
+        MARK, 4000,
+        RESUME,
         TRANSMITER, 5, 5,
+        PAUSE,
         HANDLER, Event::BUFFER|Event::WRITE, 0, 0,
 
-        MARK, 5,
+        MARK, 5000,
+        RESUME,
         TRANSMITER, 5, 5,
+        PAUSE,
 
-        MARK, 6,
+        MARK, 6000,
+        RESUME,
+        PAUSE,
 
-        MARK, 7,
-        HANDLER, Event::ERROR, 6, 0,   // internal event loop error
+        MARK, 7000,
+        RESUME,
+        PAUSE,
+        HANDLER, Event::ERROR, 6, 0,
 
-        MARK, 8,
+        MARK, 8000,
+        RESUME,
         TRANSMITER, 6, 4,
         HANDLER, Event::BUFFER|Event::WRITE, 2, 0,
         TRANSMITER, 8, 4,
         HANDLER, Event::BUFFER|Event::WRITE, 4, 0,
 
-        MARK, 9,
+        MARK, 9000,
         TRANSMITER_ERR, 4, 13,
-        HANDLER, Event::BUFFER|Event::ERROR, 4, 13, // buffer error, errno == 13
+        PAUSE,
+        HANDLER, Event::BUFFER|Event::ERROR, 4, 13,
+
+        MARK, 1000,
+        RESUME,
+        TRANSMITER, 4, 0,
+        PAUSE,
+        HANDLER, Event::BUFFER|Event::ERROR, 4, 0,
 
 
-        MARK, 10,
-        TRANSMITER, 4, 4,
-        HANDLER, Event::BUFFER|Event::WRITE, 0, 0,
-
-        MARK, 11,
-        TRANSMITER, 8, 0,
-        HANDLER, Event::BUFFER|Event::ERROR, 8, 0, // connection reset or eof
-
-
-        MARK, 12,
-        HANDLER, Event::CLEANUP, 8, 0,
 
                           // clang-format on
                       }));

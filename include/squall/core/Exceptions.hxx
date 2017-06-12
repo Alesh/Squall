@@ -9,7 +9,7 @@ namespace exc {
 class CannotSetupWatching : public std::runtime_error {
   public:
     CannotSetupWatching(std::string message = "")
-        : std::runtime_error(message.size() > 0 ? message : "Error while set up event watching") {}
+        : std::runtime_error(message.size() > 0 ? message : "Cannot setup an event watching") {}
 };
 } // squall::exc
 } // squall
